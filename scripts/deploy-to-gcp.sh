@@ -8,7 +8,7 @@ PROJECT_ID="${GCP_PROJECT_ID:-your-gcp-project-id}"
 REGION="${GCP_REGION:-asia-east1}"
 BUCKET_NAME="${GCS_BUCKET:-gs://${PROJECT_ID}-dataflow}"
 SUBSCRIPTION="projects/${PROJECT_ID}/subscriptions/health-data-sub"
-BIGQUERY_TABLE="${PROJECT_ID}:health.patient_data"
+BIGQUERY_DATASET="health"
 REDIS_HOST="${REDIS_HOST:-your-redis-host}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
@@ -38,7 +38,7 @@ fi
 echo "構建 JAR..."
 ./gradlew clean fatJar
 
-JAR_PATH="build/libs/SeniorCarePlusDataFlowKotlin-1.0.0-all.jar"
+JAR_PATH="dataflow/build/libs/dataflow-1.0.0-all.jar"
 if [ ! -f "$JAR_PATH" ]; then
     echo "❌ JAR 文件不存在: $JAR_PATH"
     exit 1
@@ -63,20 +63,7 @@ gcloud dataflow jobs run $JOB_NAME \
   --temp-location=${BUCKET_NAME}/temp \
   --max-num-workers=10 \
   --worker-machine-type=n1-standard-2 \
-  --parameters="
-runner=DataflowRunner,
-project=$PROJECT_ID,
-region=$REGION,
-inputSubscription=$SUBSCRIPTION,
-bigQueryTable=$BIGQUERY_TABLE,
-redisHost=$REDIS_HOST,
-redisPort=$REDIS_PORT,
-redisPassword=$REDIS_PASSWORD,
-enableDeduplication=true,
-deduplicationWindowSeconds=5,
-enableValidation=true,
-redisTtlSeconds=3600
-"
+  --parameters="runner=DataflowRunner,project=$PROJECT_ID,region=$REGION,inputSubscription=$SUBSCRIPTION,bigQueryDataset=$BIGQUERY_DATASET,redisHost=$REDIS_HOST,redisPort=$REDIS_PORT,redisPassword=$REDIS_PASSWORD,enableDeduplication=true,deduplicationWindowSeconds=5,enableValidation=true,redisTtlSeconds=3600"
 
 echo "✅ Dataflow Job 已啟動: $JOB_NAME"
 echo "監控 Job:"
