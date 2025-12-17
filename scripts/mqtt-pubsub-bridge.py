@@ -96,6 +96,9 @@ def on_message(client, userdata, msg):
         payload = msg.payload.decode('utf-8')
         data = json.loads(payload)
         
+        # ✅ 添加接收时间戳（最准确的时间，< 1秒延迟）
+        data['receivedAt'] = datetime.utcnow().isoformat() + 'Z'
+        
         # 提取关键信息
         mac = data.get('MAC', 'unknown')
         content = data.get('content', 'unknown')
@@ -111,12 +114,14 @@ def on_message(client, userdata, msg):
         print(f"  Gateway: {gateway_id}")
         print(f"  生理数据: HR={hr}, SpO2={spo2}, BP_Syst={bp_syst}")
         
-        # 转发到 Pub/Sub
-        future = publisher.publish(topic_path, payload.encode('utf-8'))
+        # 转发到 Pub/Sub（包含 receivedAt）
+        updated_payload = json.dumps(data).encode('utf-8')
+        future = publisher.publish(topic_path, updated_payload)
         message_id = future.result(timeout=10.0)
         
         stats['forwarded'] += 1
         print(f"  ✅ 已转发到 Pub/Sub (Message ID: {message_id})")
+        print(f"  ⏱️ receivedAt: {data['receivedAt']}")
         
         # 运行时统计
         elapsed = (datetime.now() - stats['start_time']).total_seconds()

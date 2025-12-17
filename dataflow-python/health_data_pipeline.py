@@ -43,14 +43,14 @@ class ParseHealthData(beam.DoFn):
                 
                 yield beam.pvalue.TaggedOutput('vital_signs', vital_data)
                 
-            elif content_type == 'diaper DV1':
+            elif content_type.lower() in ['diaper dv1', 'diaper_dv1']:  # ✅ 不区分大小写
                 if 'data' in data:
                     # 测试格式
                     diaper_data = self._process_diaper_data(data['data'])
                     diaper_data['device_id'] = data.get('device_id')
                     diaper_data['timestamp'] = data.get('timestamp')
                 else:
-                    # 真实格式 (待实现)
+                    # 真实 MQTT 格式：扁平结构
                     diaper_data = self._parse_flat_diaper_data(data, processed_at)
                 
                 yield beam.pvalue.TaggedOutput('diaper_status', diaper_data)
@@ -76,14 +76,17 @@ class ParseHealthData(beam.DoFn):
     
     def _parse_flat_vital_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
         """解析真实 MQTT 格式的扁平生理数据 - 支持带空格的字段名"""
-        # 获取timestamp，如果没有则使用processed_at作为timestamp
-        timestamp = data.get('receivedAt', data.get('timestamp'))
-        if not timestamp:
-            timestamp = processed_at  # 使用处理时间作为数据时间
+        # ✅ 获取 timestamp，优先使用 receivedAt（MQTT 桥接添加的准确时间）
+        timestamp = data.get('receivedAt') or data.get('timestamp') or processed_at
+        
+        # 确保 timestamp 格式正确（BigQuery 要求）
+        if timestamp and not timestamp.endswith('Z') and not timestamp.endswith('+00:00'):
+            if 'T' in timestamp:
+                timestamp = timestamp + 'Z'
         
         vital_data = {
             'device_id': data.get('MAC', data.get('device_id', 'unknown')),
-            'timestamp': timestamp,
+            'timestamp': timestamp,  # ← 永远不会是 None
             'heart_rate': data.get('hr'),
             # 支持带空格和下划线两种格式
             'systolic_bp': data.get('bp syst', data.get('bp_syst')),
@@ -95,15 +98,54 @@ class ParseHealthData(beam.DoFn):
             'processed_at': processed_at
         }
         
-        # 移除 None 值
-        vital_data = {k: v for k, v in vital_data.items() if v is not None}
+        # 移除 None 值，但保留必需字段
+        result = {}
+        for k, v in vital_data.items():
+            if k in ['timestamp', 'device_id', 'processed_at']:
+                result[k] = v  # 必需字段永远保留
+            elif v is not None:
+                result[k] = v
         
-        return vital_data
+        return result
     
     def _parse_flat_diaper_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
         """解析真实 MQTT 格式的扁平尿布数据"""
-        # 待实现
-        return {}
+        # ✅ 获取 timestamp，优先使用 receivedAt
+        timestamp = data.get('receivedAt') or data.get('timestamp') or processed_at
+        
+        # 确保 timestamp 格式正确
+        if timestamp and not timestamp.endswith('Z') and not timestamp.endswith('+00:00'):
+            if 'T' in timestamp:
+                timestamp = timestamp + 'Z'
+        
+        # 获取湿度并推断尿布状态
+        humidity = data.get('humi', data.get('humidity', 0))
+        if humidity > 60:
+            status = 'wet'
+        elif humidity > 40:
+            status = 'damp'
+        else:
+            status = 'dry'
+        
+        diaper_data = {
+            'device_id': data.get('MAC', data.get('device_id', 'unknown')),
+            'timestamp': timestamp,  # ← 永远不会是 None
+            'humidity': int(humidity) if humidity else 0,
+            'button_status': data.get('button', data.get('button_status', '')),
+            'battery_level': data.get('battery level', data.get('battery_level')),
+            'diaper_status': status,
+            'processed_at': processed_at
+        }
+        
+        # 移除 None 值，但保留必需字段
+        result = {}
+        for k, v in diaper_data.items():
+            if k in ['timestamp', 'device_id', 'processed_at', 'diaper_status']:
+                result[k] = v  # 必需字段永远保留
+            elif v is not None and v != '':
+                result[k] = v
+        
+        return result
     
     def _process_diaper_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """处理尿布数据，添加状态推断"""
