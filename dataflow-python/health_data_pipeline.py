@@ -41,9 +41,11 @@ class ParseHealthData(beam.DoFn):
                     # 真实 MQTT 格式：扁平结构
                     vital_data = self._parse_flat_vital_data(data, processed_at)
                 
-                yield beam.pvalue.TaggedOutput('vital_signs', vital_data)
+                # ✅ 只写入有效数据
+                if vital_data is not None:
+                    yield beam.pvalue.TaggedOutput('vital_signs', vital_data)
                 
-            elif content_type.lower() in ['diaper dv1', 'diaper_dv1']:  # ✅ 不区分大小写
+            elif content_type.lower() in ['dv1', 'diaper dv1', 'diaper_dv1']:  # ✅ 支持多种格式
                 if 'data' in data:
                     # 测试格式
                     diaper_data = self._process_diaper_data(data['data'])
@@ -53,7 +55,9 @@ class ParseHealthData(beam.DoFn):
                     # 真实 MQTT 格式：扁平结构
                     diaper_data = self._parse_flat_diaper_data(data, processed_at)
                 
-                yield beam.pvalue.TaggedOutput('diaper_status', diaper_data)
+                # ✅ 只写入有效数据
+                if diaper_data is not None:
+                    yield beam.pvalue.TaggedOutput('diaper_status', diaper_data)
             else:
                 yield beam.pvalue.TaggedOutput('invalid', data)
                 
@@ -106,6 +110,11 @@ class ParseHealthData(beam.DoFn):
             elif v is not None:
                 result[k] = v
         
+        # ✅ 验证必需字段，避免写入空数据
+        if not result.get('device_id') or result.get('device_id') == 'unknown':
+            logger.warning(f"跳过无效 vital 数据: device_id 为空或 unknown")
+            return None
+        
         return result
     
     def _parse_flat_diaper_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
@@ -144,6 +153,11 @@ class ParseHealthData(beam.DoFn):
                 result[k] = v  # 必需字段永远保留
             elif v is not None and v != '':
                 result[k] = v
+        
+        # ✅ 验证必需字段，避免写入空数据
+        if not result.get('device_id') or result.get('device_id') == 'unknown':
+            logger.warning(f"跳过无效 diaper 数据: device_id 为空或 unknown")
+            return None
         
         return result
     
