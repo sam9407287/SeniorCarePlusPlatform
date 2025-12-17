@@ -10,6 +10,18 @@ import org.apache.beam.sdk.options.Validation
  */
 interface HealthDataPipelineOptions : PipelineOptions {
     
+    // ============ GCP 配置 ============
+    
+    @Description("GCP Project ID")
+    @Validation.Required
+    fun getProject(): String
+    fun setProject(value: String)
+    
+    @Description("GCP Region")
+    @Default.String("asia-east1")
+    fun getRegion(): String
+    fun setRegion(value: String)
+    
     // ============ 輸入配置 ============
     
     @Description("Pub/Sub subscription to read from")
@@ -85,7 +97,7 @@ object ConfigFactory {
      */
     fun createDevConfig(options: HealthDataPipelineOptions): DevConfig {
         return DevConfig(
-            projectId = options.project,
+            projectId = options.getProject(),
             inputSubscription = options.getInputSubscription(),
             bigQueryDataset = options.getBigQueryDataset(),
             redisHost = options.getRedisHost(),
@@ -103,8 +115,8 @@ object ConfigFactory {
      */
     fun createProdConfig(options: HealthDataPipelineOptions): ProdConfig {
         return ProdConfig(
-            projectId = options.project,
-            region = options.region,
+            projectId = options.getProject(),
+            region = options.getRegion(),
             inputSubscription = options.getInputSubscription(),
             bigQueryDataset = options.getBigQueryDataset(),
             redisHost = options.getRedisHost(),
