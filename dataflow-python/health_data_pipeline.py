@@ -27,15 +27,29 @@ class ParseHealthData(beam.DoFn):
             # 解析 JSON
             data = json.loads(element.decode('utf-8') if isinstance(element, bytes) else element)
             content_type = data.get('content', '')
+            device_id = data.get('device_id')
+            timestamp = data.get('timestamp')
             
             # 添加处理时间
-            data['processed_at'] = datetime.utcnow().isoformat()
+            processed_at = datetime.utcnow().isoformat()
             
             # 根据 content 类型打标签
             if content_type == '300B':
-                yield beam.pvalue.TaggedOutput('vital_signs', data['data'])
-            elif content_type == 'Diaper DV1':
-                yield beam.pvalue.TaggedOutput('diaper_status', self._process_diaper_data(data['data']))
+                # 合并外层字段和内层数据
+                vital_data = data['data'].copy()
+                vital_data['device_id'] = device_id
+                vital_data['timestamp'] = timestamp
+                vital_data['processed_at'] = processed_at
+                # 重命名字段以匹配 BigQuery schema
+                if 'temperature' in vital_data:
+                    vital_data['body_temp'] = vital_data.pop('temperature')
+                yield beam.pvalue.TaggedOutput('vital_signs', vital_data)
+            elif content_type == 'diaper DV1':
+                # 合并外层字段和内层数据
+                diaper_data = self._process_diaper_data(data['data'])
+                diaper_data['device_id'] = device_id
+                diaper_data['timestamp'] = timestamp
+                yield beam.pvalue.TaggedOutput('diaper_status', diaper_data)
             else:
                 yield beam.pvalue.TaggedOutput('invalid', data)
                 
@@ -57,6 +71,17 @@ class ParseHealthData(beam.DoFn):
         
         data['diaper_status'] = status
         data['processed_at'] = datetime.utcnow().isoformat()
+        
+        # 转换 button_status 从十六进制字符串到整数
+        if 'button_status' in data and isinstance(data['button_status'], str):
+            try:
+                data['button_status'] = int(data['button_status'], 16)
+            except ValueError:
+                data['button_status'] = 0
+        
+        # 移除不在 schema 中的字段
+        data.pop('temperature', None)
+        
         return data
 
 
@@ -115,14 +140,15 @@ def run_pipeline(
 ):
     """运行数据管道"""
     
-    # Pipeline 选项
-    options = PipelineOptions([
-        f'--project={project_id}',
-        '--runner=DirectRunner',  # 本地测试用 DirectRunner
-        '--streaming',
-        '--save_main_session',
-    ])
+    # Pipeline 选项（使用命令行参数 + 必需的项目设置）
+    options = PipelineOptions()
     options.view_as(StandardOptions).streaming = True
+    
+    # 确保 project 设置正确
+    from apache_beam.options.pipeline_options import GoogleCloudOptions
+    google_cloud_options = options.view_as(GoogleCloudOptions)
+    if not google_cloud_options.project:
+        google_cloud_options.project = project_id
     
     # BigQuery 表定义
     vital_signs_schema = {
@@ -163,7 +189,7 @@ def run_pipeline(
         parsed = (
             messages
             | 'ParseData' >> beam.ParDo(ParseHealthData()).with_outputs(
-                'vital_signs', 'diaper_status', 'invalid', main='invalid'
+                'vital_signs', 'diaper_status', 'invalid'
             )
         )
         
@@ -214,7 +240,9 @@ def run_pipeline(
 
 if __name__ == '__main__':
     import argparse
+    import sys
     
+    # 创建自定义参数解析器（只解析我们的参数，其余传给 Beam）
     parser = argparse.ArgumentParser(description='SeniorCare Health Data Pipeline')
     parser.add_argument('--project', required=True, help='GCP Project ID')
     parser.add_argument('--subscription', required=True, help='Pub/Sub subscription')
@@ -223,13 +251,18 @@ if __name__ == '__main__':
     parser.add_argument('--redis-port', type=int, default=6379, help='Redis port')
     parser.add_argument('--redis-password', default=None, help='Redis password')
     
-    args = parser.parse_args()
+    # 解析已知参数，其余的交给 Beam
+    args, pipeline_args = parser.parse_known_args()
     
     logger.info("Starting Health Data Pipeline...")
     logger.info(f"Project: {args.project}")
     logger.info(f"Subscription: {args.subscription}")
     logger.info(f"BigQuery Dataset: {args.bigquery_dataset}")
     logger.info(f"Redis: {args.redis_host}:{args.redis_port}")
+    logger.info(f"Pipeline args: {pipeline_args}")
+    
+    # 将 Beam 参数添加到 sys.argv
+    sys.argv = [sys.argv[0]] + pipeline_args
     
     run_pipeline(
         project_id=args.project,
