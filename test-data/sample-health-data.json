@@ -1,0 +1,22 @@
+{
+  "gateway_id": "137205",
+  "content": "300B",
+  "MAC": "E0:0E:08:36:93:F8",
+  "SOS": 0,
+  "hr": 85,
+  "spO2": 96,
+  "bp syst": 130,
+  "bp diast": 87,
+  "skin temp": 33.5,
+  "room temp": 24.5,
+  "steps": 3857,
+  "sleep time": "22:46",
+  "wake time": "7:13",
+  "light sleep (min)": 297,
+  "deep sleep (min)": 38,
+  "move": 26,
+  "wear": 1,
+  "battery level": 86,
+  "serial no": 1302
+}
+

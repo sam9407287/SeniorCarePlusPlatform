@@ -1,0 +1,15 @@
+{
+  "content": "diaper DV1",
+  "gateway id": "GW0001",
+  "MAC": "1302",
+  "name": "Diaper Sensor 01",
+  "fw ver": "1.0.2",
+  "temp": 35.8,
+  "humi": 45.2,
+  "button": 0,
+  "mssg idx": 1234,
+  "ack": 1,
+  "battery level": 75,
+  "serial no": 2001
+}
+

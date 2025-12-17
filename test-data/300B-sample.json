@@ -1,0 +1,22 @@
+{
+  "content": "300B",
+  "gateway id": "GW0001",
+  "MAC": "1302",
+  "SOS": 0,
+  "hr": 75,
+  "spO2": 98,
+  "bp syst": 120,
+  "bp diast": 80,
+  "skin temp": 36.5,
+  "room temp": 24.3,
+  "steps": 3500,
+  "sleep time": "22:30:00",
+  "wake time": "07:00:00",
+  "light sleep (min)": 240,
+  "deep sleep (min)": 180,
+  "move": 15,
+  "wear": 1,
+  "battery level": 85,
+  "serial no": 1001
+}
+

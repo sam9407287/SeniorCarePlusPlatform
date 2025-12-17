@@ -1,0 +1,44 @@
+# 開發環境配置
+
+project_id: "your-dev-project"
+region: "asia-east1"
+
+# Pub/Sub
+pubsub:
+  subscription: "projects/your-dev-project/subscriptions/health-data-sub-dev"
+  topic: "projects/your-dev-project/topics/health-data-topic-dev"
+  dead_letter_topic: "projects/your-dev-project/topics/health-data-dlq-dev"
+
+# BigQuery
+bigquery:
+  dataset: "health_dev"
+  table: "patient_data"
+  full_table: "your-dev-project:health_dev.patient_data"
+
+# Redis
+redis:
+  host: "localhost"
+  port: 6379
+  password: null
+  ttl_seconds: 3600
+  connection_pool:
+    max_total: 20
+    max_idle: 10
+    min_idle: 2
+
+# Pipeline 配置
+pipeline:
+  enable_deduplication: true
+  deduplication_window_seconds: 5
+  enable_validation: true
+  window_duration_seconds: 5
+  
+# Dataflow 配置
+dataflow:
+  runner: "DirectRunner"
+  max_num_workers: 2
+  num_workers: 1
+  worker_machine_type: "n1-standard-2"
+  staging_location: "gs://your-dev-project-dataflow/staging"
+  temp_location: "gs://your-dev-project-dataflow/temp"
+

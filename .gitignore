@@ -1,0 +1,79 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Kotlin
+*.kt.swp
+*.class
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.idea_modules/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Eclipse
+.settings/
+.classpath
+.project
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Credentials & Secrets
+*.json
+!src/test/resources/*.json
+!test-data/*.json
+*.key
+*.pem
+*.p12
+*.jks
+service-account-*.json
+credentials.json
+
+# Local Config
+local.properties
+application-local.yml
+*.local.*
+.env
+.env.local
+
+# GCP
+gcp-credentials/
+service-accounts/
+
+# Redis
+dump.rdb
+
+# Logs
+logs/
+*.log
+log/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# Build outputs
+dist/
+target/
+
+# Dataflow specific
+staging/
+temp/

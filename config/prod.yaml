@@ -1,0 +1,45 @@
+# 生產環境配置
+
+project_id: "your-prod-project"
+region: "asia-east1"
+
+# Pub/Sub
+pubsub:
+  subscription: "projects/your-prod-project/subscriptions/health-data-sub"
+  topic: "projects/your-prod-project/topics/health-data-topic"
+  dead_letter_topic: "projects/your-prod-project/topics/health-data-dlq"
+
+# BigQuery
+bigquery:
+  dataset: "health"
+  table: "patient_data"
+  full_table: "your-prod-project:health.patient_data"
+
+# Redis
+redis:
+  host: "your-redis-prod-host"
+  port: 6379
+  password: "${REDIS_PASSWORD}"  # 從環境變量讀取
+  ttl_seconds: 3600
+  connection_pool:
+    max_total: 50
+    max_idle: 20
+    min_idle: 5
+
+# Pipeline 配置
+pipeline:
+  enable_deduplication: true
+  deduplication_window_seconds: 5
+  enable_validation: true
+  window_duration_seconds: 5
+  
+# Dataflow 配置
+dataflow:
+  runner: "DataflowRunner"
+  max_num_workers: 20
+  num_workers: 5
+  worker_machine_type: "n1-standard-2"
+  staging_location: "gs://your-prod-project-dataflow/staging"
+  temp_location: "gs://your-prod-project-dataflow/temp"
+  autoscaling_algorithm: "THROUGHPUT_BASED"
+
