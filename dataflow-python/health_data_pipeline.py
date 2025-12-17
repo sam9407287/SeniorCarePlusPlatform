@@ -20,35 +20,39 @@ logger = logging.getLogger(__name__)
 
 
 class ParseHealthData(beam.DoFn):
-    """解析健康数据 JSON"""
+    """解析健康数据 JSON - 支持真实 MQTT 格式和测试格式"""
     
     def process(self, element):
         try:
             # 解析 JSON
             data = json.loads(element.decode('utf-8') if isinstance(element, bytes) else element)
             content_type = data.get('content', '')
-            device_id = data.get('device_id')
-            timestamp = data.get('timestamp')
             
             # 添加处理时间
             processed_at = datetime.utcnow().isoformat()
             
             # 根据 content 类型打标签
             if content_type == '300B':
-                # 合并外层字段和内层数据
-                vital_data = data['data'].copy()
-                vital_data['device_id'] = device_id
-                vital_data['timestamp'] = timestamp
-                vital_data['processed_at'] = processed_at
-                # 重命名字段以匹配 BigQuery schema
-                if 'temperature' in vital_data:
-                    vital_data['body_temp'] = vital_data.pop('temperature')
+                # 检查是否为真实 MQTT 格式（扁平结构）或测试格式（嵌套结构）
+                if 'data' in data:
+                    # 测试格式：嵌套结构
+                    vital_data = self._parse_nested_vital_data(data, processed_at)
+                else:
+                    # 真实 MQTT 格式：扁平结构
+                    vital_data = self._parse_flat_vital_data(data, processed_at)
+                
                 yield beam.pvalue.TaggedOutput('vital_signs', vital_data)
+                
             elif content_type == 'diaper DV1':
-                # 合并外层字段和内层数据
-                diaper_data = self._process_diaper_data(data['data'])
-                diaper_data['device_id'] = device_id
-                diaper_data['timestamp'] = timestamp
+                if 'data' in data:
+                    # 测试格式
+                    diaper_data = self._process_diaper_data(data['data'])
+                    diaper_data['device_id'] = data.get('device_id')
+                    diaper_data['timestamp'] = data.get('timestamp')
+                else:
+                    # 真实格式 (待实现)
+                    diaper_data = self._parse_flat_diaper_data(data, processed_at)
+                
                 yield beam.pvalue.TaggedOutput('diaper_status', diaper_data)
             else:
                 yield beam.pvalue.TaggedOutput('invalid', data)
@@ -56,6 +60,50 @@ class ParseHealthData(beam.DoFn):
         except Exception as e:
             logger.error(f"Error parsing data: {e}")
             yield beam.pvalue.TaggedOutput('invalid', {'error': str(e), 'raw_data': str(element)})
+    
+    def _parse_nested_vital_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
+        """解析测试格式的嵌套生理数据"""
+        vital_data = data['data'].copy()
+        vital_data['device_id'] = data.get('device_id')
+        vital_data['timestamp'] = data.get('timestamp')
+        vital_data['processed_at'] = processed_at
+        
+        # 重命名字段以匹配 BigQuery schema
+        if 'temperature' in vital_data:
+            vital_data['body_temp'] = vital_data.pop('temperature')
+        
+        return vital_data
+    
+    def _parse_flat_vital_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
+        """解析真实 MQTT 格式的扁平生理数据 - 支持带空格的字段名"""
+        # 获取timestamp，如果没有则使用processed_at作为timestamp
+        timestamp = data.get('receivedAt', data.get('timestamp'))
+        if not timestamp:
+            timestamp = processed_at  # 使用处理时间作为数据时间
+        
+        vital_data = {
+            'device_id': data.get('MAC', data.get('device_id', 'unknown')),
+            'timestamp': timestamp,
+            'heart_rate': data.get('hr'),
+            # 支持带空格和下划线两种格式
+            'systolic_bp': data.get('bp syst', data.get('bp_syst')),
+            'diastolic_bp': data.get('bp diast', data.get('bp_diast')),
+            'spo2': data.get('SpO2', data.get('Spo2')),
+            'body_temp': data.get('skin temp', data.get('skin_temp', data.get('room temp', data.get('room_temp', 0)))),
+            'steps': data.get('steps', 0),
+            'battery_level': data.get('battery level', data.get('battery_level')),
+            'processed_at': processed_at
+        }
+        
+        # 移除 None 值
+        vital_data = {k: v for k, v in vital_data.items() if v is not None}
+        
+        return vital_data
+    
+    def _parse_flat_diaper_data(self, data: Dict[str, Any], processed_at: str) -> Dict[str, Any]:
+        """解析真实 MQTT 格式的扁平尿布数据"""
+        # 待实现
+        return {}
     
     def _process_diaper_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """处理尿布数据，添加状态推断"""
