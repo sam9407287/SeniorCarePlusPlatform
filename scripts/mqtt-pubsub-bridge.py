@@ -18,9 +18,9 @@ MQTT_PORT = 8883  # SSL/TLS 端口
 MQTT_USERNAME = "testweb1"
 MQTT_PASSWORD = "Aa000000"
 
-# 只订阅健康数据 Topic
+# 订阅所有 UWB 数据（Health、Location 等）
 MQTT_TOPICS = [
-    ("UWB/+/Health", 0),  # QoS 0，订阅所有 Gateway 的健康数据
+    ("UWB/#", 0),  # QoS 0，订阅所有 UWB 开头的 topics
 ]
 
 # ===== GCP Pub/Sub 配置 =====
