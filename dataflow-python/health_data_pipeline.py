@@ -285,11 +285,11 @@ def run_pipeline(
             )
         )
         
-        # 记录无效数据
-        (
-            parsed.invalid
-            | 'LogInvalid' >> beam.Map(lambda x: logger.warning(f"Invalid data: {x}"))
-        )
+        # 记录无效数据（注释掉避免 logger 问题）
+        # (
+        #     parsed.invalid
+        #     | 'LogInvalid' >> beam.Map(lambda x: logger.warning(f"Invalid data: {x}"))
+        # )
 
 
 if __name__ == '__main__':
