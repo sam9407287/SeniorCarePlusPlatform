@@ -159,6 +159,10 @@ class WriteToRedis(beam.DoFn):
         )
     
     def process(self, element, data_type):
+        import logging
+        from datetime import datetime
+        logger = logging.getLogger(__name__)
+        
         try:
             device_id = element.get('device_id')
             timestamp = element.get('timestamp')
