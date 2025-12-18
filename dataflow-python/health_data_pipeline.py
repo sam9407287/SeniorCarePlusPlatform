@@ -145,6 +145,7 @@ class WriteToRedis(beam.DoFn):
     
     def setup(self):
         """初始化 Redis 连接"""
+        import redis  # 在 worker 中导入
         self.redis_client = redis.Redis(
             host=self.redis_host,
             port=self.redis_port,
