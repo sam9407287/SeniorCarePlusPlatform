@@ -23,6 +23,10 @@ class ParseHealthData(beam.DoFn):
     """解析健康数据 JSON - 支持真实 MQTT 格式和测试格式"""
     
     def process(self, element):
+        from datetime import datetime
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             # 解析 JSON
             data = json.loads(element.decode('utf-8') if isinstance(element, bytes) else element)
