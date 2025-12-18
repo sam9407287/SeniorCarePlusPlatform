@@ -25,6 +25,7 @@ class ParseHealthData(beam.DoFn):
     def process(self, element):
         from datetime import datetime
         import logging
+        import apache_beam as beam
         logger = logging.getLogger(__name__)
         
         try:
